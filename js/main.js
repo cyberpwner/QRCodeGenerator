@@ -4,12 +4,13 @@ const colorField = document.getElementById('color');
 const bgColorField = document.getElementById('bg-color');
 const sizeField = document.getElementById('size');
 const marginField = document.getElementById('margin');
-const formatFields = document.getElementsByName('format'); // all radio inputs with name 'format'
 const goBackBtn = document.getElementById('go-back');
 const resultSection = document.getElementById('qr-code-result');
 const settingsSection = document.getElementById('qr-code-settings');
 
 /* Handling Events */
+
+window.addEventListener('load', () => qrForm.reset());
 
 qrForm.addEventListener('submit', handleSubmit);
 
@@ -32,27 +33,31 @@ function validateData(data) {
 async function handleSubmit(event) {
     event.preventDefault();
 
-    const data = dataField.value.trim();
-    const color = String(colorField.value).substring(1); // quitar '#' del color
-    const bgColor = String(bgColorField.value).substring(1); // quitar '#' del color
-    const size = `${sizeField.value}x${sizeField.value}`; // i.e: 200x200
+    const data = dataField.value;
+    const color = colorField.value;
+    const bgcolor = bgColorField.value;
+    const size = sizeField.value;
     const margin = marginField.value;
+    const format = document.querySelector('input[name="format"]:checked').value;
 
     if (!validateData(data)) {
+        showError();
         return;
     }
 
-    const formatSelected = Array.from(formatFields).filter(
-        (field) => field.checked,
-    );
+    // if everything is correct hide the error in case it was show before
+    hideError();
 
-    if (!formatSelected) {
-        return;
-    }
+    const params = prepareParams({
+        data,
+        color,
+        bgcolor,
+        size,
+        margin,
+        format,
+    });
 
-    const format = formatSelected[0].value;
-
-    const qr = await createQR(data, color, bgColor, size, margin, format);
+    const qr = await createQR(params);
 
     if (!qr) {
         return;
@@ -61,19 +66,31 @@ async function handleSubmit(event) {
     showQR(qr);
 }
 
+// Factory function that returns an object with all the parameters in the right format to be passed to the api
+const prepareParams = (params) => ({
+    data: params.data,
+    size: `${params.size}x${params.size}`, // i.e: 200x200
+    color: params.color.replace('#', ''), // quitar el # del color
+    bgcolor: params.bgcolor.replace('#', ''),
+    margin: params.margin,
+    format: params.format,
+});
+
 /* Fetching from API */
 
-async function createQR(data, color, bgColor, size, margin, format) {
-    const baseUri = 'https://api.qrserver.com/v1/create-qr-code/';
-    const uri = `${baseUri}?data=${data}&size=${size}&color=${color}&bgcolor=${bgColor}&margin=${margin}&format=${format}`;
+async function createQR(parameters) {
+    const baseUrl = 'https://api.qrserver.com/v1/create-qr-code/';
+    const urlParams = new URLSearchParams(parameters).toString();
 
-    const qr = await fetch(uri);
+    const fullUrl = `${baseUrl}?${urlParams}`;
+
+    const qr = await fetch(fullUrl);
 
     if (!qr.ok) {
         return false;
     }
 
-    return uri;
+    return fullUrl;
 }
 
 /* Dom Manipulation */
@@ -110,3 +127,11 @@ function updateMarginValue() {
     const marginValue = document.getElementById('margin-value');
     marginValue.textContent = `${marginField.value} px`;
 }
+
+const showError = () => {
+    dataField.classList.add('error');
+};
+
+const hideError = () => {
+    dataField.classList.remove('error');
+};
